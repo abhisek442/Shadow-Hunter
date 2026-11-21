@@ -1,0 +1,19 @@
+name: Create Android signing key (run ONCE)
+on: workflow_dispatch
+jobs:
+  keygen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate keystore
+        run: |
+          PW=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore release.jks -alias shadow -keyalg RSA -keysize 2048 -validity 10000 -storepass $PW -keypass $PW -dname "CN=Shadow Hunter"
+          base64 -w0 release.jks > KEYSTORE_B64.txt
+          echo -n $PW > KEY_PASSWORD.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signing-key-DELETE-AFTER-SAVING
+          path: |
+            KEYSTORE_B64.txt
+            KEY_PASSWORD.txt
+          retention-days: 1
