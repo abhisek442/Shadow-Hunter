@@ -1,0 +1,2 @@
+{ "appId": "com.example.shadowhunter", "appName": "Shadow Hunter", "webDir": "www", "backgroundColor": "#0e101a",
+  "server": { "androidScheme": "http", "cleartext": true } }
