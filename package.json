@@ -32,7 +32,8 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "artifactName": "ShadowHunter-Setup.${ext}"
     }
   }
 }
