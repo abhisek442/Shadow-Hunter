@@ -14,6 +14,9 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - run: npm install
+      - name: Stamp version
+        shell: bash
+        run: sed -i.bak "s/__VER__/${{ github.run_number }}/" www/index.html && rm www/index.html.bak
       - run: npx cap add android
       - name: Build APK (signed with your permanent key if set)
         env:
@@ -46,6 +49,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm install
+      - name: Stamp version
+        shell: bash
+        run: sed -i.bak "s/__VER__/${{ github.run_number }}/" www/index.html && rm www/index.html.bak
       - name: Build installer
         shell: bash
         run: npx electron-builder --win nsis --publish never -c.extraMetadata.version=1.0.${{ github.run_number }}
@@ -59,6 +65,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm install
+      - name: Stamp version
+        shell: bash
+        run: sed -i.bak "s/__VER__/${{ github.run_number }}/" www/index.html && rm www/index.html.bak
       - run: npx cap add ios
       - name: Build unsigned IPA
         run: |
