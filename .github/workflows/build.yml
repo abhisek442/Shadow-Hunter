@@ -16,12 +16,27 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - run: npm install
       - run: npx cap add android
-      - name: Build APK
+      - name: Build APK (signed with your permanent key if set)
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
+          N=${{ github.run_number }}
           sed -i 's/<activity/<activity android:screenOrientation="landscape"/' android/app/src/main/AndroidManifest.xml
+          sed -i "s/versionCode [0-9]*/versionCode $N/; s/versionName \".*\"/versionName \"1.0.$N\"/" android/app/build.gradle
           npx cap sync android
-          cd android && chmod +x gradlew && ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk ../ShadowHunter.apk
+          cd android && chmod +x gradlew
+          if [ -n "$KS_B64" ]; then
+            ./gradlew assembleRelease
+            echo "$KS_B64" | base64 -d > release.jks
+            BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+            $BT/zipalign -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+            $BT/apksigner sign --ks release.jks --ks-pass pass:$KS_PASS --key-pass pass:$KS_PASS --ks-key-alias shadow --out ../ShadowHunter.apk aligned.apk
+          else
+            echo "::warning::No signing key set. This APK cannot be installed over older builds."
+            ./gradlew assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk ../ShadowHunter.apk
+          fi
       - uses: actions/upload-artifact@v4
         with: { name: android-apk, path: ShadowHunter.apk }
 
@@ -32,9 +47,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm install
-      - run: npx electron-builder --win portable --publish never
+      - run: npx electron-builder --win nsis --publish never -c.extraMetadata.version=1.0.${{ github.run_number }}
       - uses: actions/upload-artifact@v4
-        with: { name: windows-exe, path: dist/*.exe }
+        with: { name: windows-installer, path: dist/*.exe }
 
   ios:
     runs-on: macos-latest
@@ -46,13 +61,14 @@ jobs:
       - run: npx cap add ios
       - name: Build unsigned IPA
         run: |
+          N=${{ github.run_number }}
           P=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" $P || true
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" $P || true
           /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string Find LAN games" $P || true
           npx cap sync ios
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CURRENT_PROJECT_VERSION=$N MARKETING_VERSION=1.0.$N build
           mkdir Payload && cp -R build/Build/Products/Release-iphoneos/App.app Payload/ && zip -qr ShadowHunter.ipa Payload
       - uses: actions/upload-artifact@v4
         with: { name: ios-ipa, path: ios/App/ShadowHunter.ipa }
